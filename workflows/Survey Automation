@@ -1,0 +1,1029 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "1YfPCT7NzrxE72E801nf7Hu3yliCkLYru",
+          "mode": "list",
+          "cachedResultName": "CW Event Attendee CSV for Surveys ",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1YfPCT7NzrxE72E801nf7Hu3yliCkLYru"
+        },
+        "event": "fileCreated",
+        "options": {}
+      },
+      "id": "a8b2fb2e-79c4-4ea7-a9b6-2db7a65512e5",
+      "name": "Google Drive Trigger (CW)",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2032,
+        64
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "1TmvUh0URqdSv9sw",
+          "name": "Awais credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "1kp_uUjBZ0PLK0QlHTD_7es3jrk7bj_0O",
+          "mode": "list",
+          "cachedResultName": "OTR Post Session Survey Automation",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1kp_uUjBZ0PLK0QlHTD_7es3jrk7bj_0O"
+        },
+        "event": "fileCreated",
+        "options": {}
+      },
+      "id": "57a5046f-2dac-432f-976b-596c2b19c358",
+      "name": "Google Drive Trigger (OTR)",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2032,
+        256
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "1TmvUh0URqdSv9sw",
+          "name": "Awais credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {
+          "binaryPropertyName": "csvData"
+        }
+      },
+      "id": "6bf66630-ceac-4be0-8846-579a71c52b6c",
+      "name": "Download CSV",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1808,
+        160
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "1TmvUh0URqdSv9sw",
+          "name": "Awais credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "binaryPropertyName": "=csvData",
+        "options": {}
+      },
+      "id": "480baf0c-ccb8-47eb-bcdc-bdb87959ed64",
+      "name": "Parse CSV to JSON",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "typeVersion": 2,
+      "position": [
+        -1584,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract event info from filename\nconst filename = $('Download CSV').first().json.name || 'Event';\nconst eventType = filename.toLowerCase().includes('otr') ? 'Off-the-Record' : 'ChatWalrus';\n\n// Clean event title from filename (remove date, extension)\nlet eventTitle = filename\n  .replace(/\\.(csv|xlsx)$/i, '')\n  .replace(/\\d{4}[-_]\\d{2}[-_]\\d{2}/g, '')\n  .replace(/[-_]/g, ' ')\n  .trim();\n\nif (!eventTitle) {\n  eventTitle = `${eventType} Session`;\n}\n\n// Get all items from CSV\nconst items = $input.all();\n\n// Return attendee data with event context\nreturn items.map(item => {\n  // Handle common CSV column names for email\n  const email = item.json.email || \n                item.json.Email || \n                item.json['Email Address'] || \n                item.json['email_address'] ||\n                item.json['User Email'] ||\n                '';\n  \n  // Handle common CSV column names for name\n  const name = item.json.name || \n               item.json.Name || \n               item.json['Full Name'] || \n               item.json['First Name'] ||\n               item.json['Name (original name)'] ||\n               '';\n  \n  // Extract first name\n  const firstName = name.split(' ')[0] || '';\n  \n  return {\n    json: {\n      email: email.toLowerCase().trim(),\n      name: name,\n      firstName: firstName,\n      eventTitle: eventTitle,\n      eventType: eventType,\n      eventDate: new Date().toISOString().split('T')[0],\n      processedAt: new Date().toISOString()\n    }\n  };\n}).filter(item => item.json.email && item.json.email.includes('@'));"
+      },
+      "id": "7612011a-0a1d-491f-a402-8e21fe426a4f",
+      "name": "Extract Attendee Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1360,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "compare": "selectedFields",
+        "fieldsToCompare": "email",
+        "options": {}
+      },
+      "id": "5238edb0-34bf-4d01-9dfb-d2dd289c77fc",
+      "name": "Remove Duplicate Emails",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 1,
+      "position": [
+        -1136,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.typeform.com/forms/fJ7iYpDj/responses",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "cb1b5050-3952-424c-8641-1cd40860b4a1",
+      "name": "Fetch Recent Typeform Responses",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -912,
+        160
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Q3aKGsZEiMWuP3Io",
+          "name": "Tyoeform"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get attendees from the deduplicated list\nconst attendees = $('Remove Duplicate Emails').all();\n\n// Get Typeform responses - handle the nested structure\nconst typeformNode = $('Fetch Recent Typeform Responses').first().json;\n\n// The Typeform API returns { items: [...], total_items: X, page_count: Y }\n// Handle both direct items array and nested structure\nlet responses = [];\nif (Array.isArray(typeformNode)) {\n  // If it's an array, it might be wrapped\n  responses = typeformNode;\n} else if (typeformNode.items) {\n  // Standard Typeform API response\n  responses = typeformNode.items;\n} else if (typeformNode.body && typeformNode.body.items) {\n  // If wrapped in body (some HTTP node configs)\n  responses = typeformNode.body.items;\n} else {\n  // Fallback - try to use as-is\n  responses = typeformNode;\n}\n\nconsole.log(`Total Typeform responses found: ${responses.length}`);\n\n// 1. Calculate the 48-hour cutoff time\nconst now = new Date();\nconst cutoffTime = new Date(now.getTime() - (48 * 60 * 60 * 1000)); // 48 hours ago\n\n// 2. Build a Set of emails AND names who submitted recently\nconst recentRespondentEmails = new Set();\nconst recentRespondentNames = new Set();\n\n// Specific Field IDs from your Typeform JSON\nconst FIRST_NAME_FIELD_ID = \"VGppOy8XqOlc\";\nconst LAST_NAME_FIELD_ID = \"mV9ICWq5ZoSj\";\nconst EMAIL_FIELD_ID = \"4Ghw0zu2jL9C\";\n\nfor (const response of responses) {\n  // Check if submission is within last 48 hours\n  const submittedAt = new Date(response.submitted_at);\n  \n  if (submittedAt > cutoffTime) {\n    const answers = response.answers || [];\n    \n    // Find the specific answer objects by ID\n    const firstNameAnswer = answers.find(a => a.field && a.field.id === FIRST_NAME_FIELD_ID);\n    const lastNameAnswer = answers.find(a => a.field && a.field.id === LAST_NAME_FIELD_ID);\n    const emailAnswer = answers.find(a => a.field && a.field.id === EMAIL_FIELD_ID);\n\n    const firstName = firstNameAnswer ? (firstNameAnswer.text || \"\") : \"\";\n    const lastName = lastNameAnswer ? (lastNameAnswer.text || \"\") : \"\";\n    const email = emailAnswer ? (emailAnswer.email || \"\") : \"\";\n\n    // Add email to set (more reliable than name matching)\n    if (email) {\n      recentRespondentEmails.add(email.toLowerCase().trim());\n    }\n\n    // Also track by name as backup\n    const fullName = `${firstName} ${lastName}`.toLowerCase().trim().replace(/\\s+/g, ' ');\n    if (fullName.length > 1) {\n      recentRespondentNames.add(fullName);\n    }\n    \n    console.log(`Recent respondent: ${fullName} (${email}) - submitted ${submittedAt.toISOString()}`);\n  }\n}\n\nconsole.log(`Found ${recentRespondentEmails.size} email(s) and ${recentRespondentNames.size} name(s) in the last 48 hours.`);\n\n// 3. Filter out attendees who exist in either the email OR name exclusion list\nconst eligibleAttendees = attendees.filter(attendee => {\n  const attendeeEmail = (attendee.json.email || \"\").toLowerCase().trim();\n  const attendeeName = (attendee.json.name || \"\").toLowerCase().trim().replace(/\\s+/g, ' ');\n  \n  // Check both email and name\n  const emailExcluded = recentRespondentEmails.has(attendeeEmail);\n  const nameExcluded = recentRespondentNames.has(attendeeName);\n  \n  const isExcluded = emailExcluded || nameExcluded;\n  \n  if (isExcluded) {\n    console.log(`Excluding: ${attendeeName} (${attendeeEmail}) - Already submitted in last 48h`);\n  }\n  \n  return !isExcluded;\n});\n\nconsole.log(`${eligibleAttendees.length} eligible attendees after 48h exclusion`);\n\n// If list is empty, return a dummy item so the flow reaches the 'If' node\nif (eligibleAttendees.length === 0) {\n  return [\n    {\n      json: {\n        email: null, \n        name: \"No Data\"\n      }\n    }\n  ];\n}\n\nreturn eligibleAttendees;"
+      },
+      "id": "25ae6618-0f59-490b-b70e-40ed61435827",
+      "name": "Filter Recent Respondents (48h)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -688,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "168119e3-edb0-496b-85c3-21c9f0f76888",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -464,
+        160
+      ],
+      "id": "2c8d1516-56a9-4f09-b1d5-80af7b479bbb",
+      "name": "Has Valid Email?"
+    },
+    {
+      "parameters": {},
+      "id": "26672cbd-057d-4a86-9e07-51391e858218",
+      "name": "No Eligible Attendees",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "Quick feedback?",
+        "message": "=<p>Hi {{ $json.firstName || $json.name.split(' ')[0] || '' }},</p>\n\n<p>Thanks for joining today's <strong>{{ $json.eventTitle }}</strong>.</p>\n<p>If you have two minutes, I'd appreciate you sharing candid feedback so I can make the next one better:</p>\n<p><a href=\"https://1vjrabkrfnc.typeform.com/to/fJ7iYpDj\">https://1vjrabkrfnc.typeform.com/to/fJ7iYpDj</a></p>\n<p>Appreciate it.</p>\n<p>-Craig</p>",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "Craig Foldes"
+        }
+      },
+      "id": "885f2bd0-a4ed-4602-acbe-5d62d93c5ce3",
+      "name": "Send Initial Survey Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -240,
+        64
+      ],
+      "webhookId": "89991e0a-b13c-4383-8d95-92a9634f1447",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1Zitiyd5rjYlP2xy",
+          "name": "Craig's Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1Uksiu0GisxgUcOkaRtfdX7y4Y4i7Cqnb1rVMbl-k-e8",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Uksiu0GisxgUcOkaRtfdX7y4Y4i7Cqnb1rVMbl-k-e8/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email": "={{ $('Has Valid Email?').item.json.email }}",
+            "Name": "={{ $('Has Valid Email?').item.json.name }}",
+            "Event Title": "={{ $('Has Valid Email?').item.json.eventTitle }}",
+            "Event Type": "={{ $('Has Valid Email?').item.json.eventType }}",
+            "Initial Sent At": "={{ new Date().toISOString() }}",
+            "Reminder Sent": "=No",
+            "Survey Completed": "=No"
+          },
+          "matchingColumns": [
+            "Email"
+          ],
+          "schema": [
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Event Title",
+              "displayName": "Event Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Event Type",
+              "displayName": "Event Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Initial Sent At",
+              "displayName": "Initial Sent At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Reminder Sent",
+              "displayName": "Reminder Sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Survey Completed",
+              "displayName": "Survey Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "5b451da1-f376-4ec9-bee2-cf9dd13b3f70",
+      "name": "Track Email Sent",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -16,
+        64
+      ],
+      "retryOnFail": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "iZSah7NCnZV4Rwsm",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "6a078581-50a8-48d3-bf60-de35410a93c6",
+      "name": "Daily Followup Check (9 AM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1568,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Uksiu0GisxgUcOkaRtfdX7y4Y4i7Cqnb1rVMbl-k-e8",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Uksiu0GisxgUcOkaRtfdX7y4Y4i7Cqnb1rVMbl-k-e8/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "8fb7833e-8b84-4ce1-a089-d7effbb5a49a",
+      "name": "Read Email Tracking",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1344,
+        784
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "iZSah7NCnZV4Rwsm",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.typeform.com/forms/fJ7iYpDj/responses",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "d0a5ceab-6894-4274-a1d8-b9d35ab1bc24",
+      "name": "Fetch Typeform (Followup)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1120,
+        784
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Q3aKGsZEiMWuP3Io",
+          "name": "Tyoeform"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get tracked emails from sheet\nconst trackedEmails = $('Read Email Tracking').all();\n\n// Get Typeform responses to check who completed\nconst typeformNode = $('Fetch Typeform (Followup)').first().json;\n\n// Handle nested Typeform response structure\nlet responses = [];\nif (Array.isArray(typeformNode)) {\n  responses = typeformNode;\n} else if (typeformNode.items) {\n  responses = typeformNode.items;\n} else if (typeformNode.body && typeformNode.body.items) {\n  responses = typeformNode.body.items;\n} else {\n  responses = typeformNode;\n}\n\nconsole.log(`Total Typeform responses found: ${responses.length}`);\n\nconst now = new Date();\nconst twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));\nconst fortyEightHoursAgo = new Date(now.getTime() - (48 * 60 * 60 * 1000));\n\n// Build set of recent respondents (48h) - by BOTH email and name\nconst FIRST_NAME_FIELD_ID = \"VGppOy8XqOlc\";\nconst LAST_NAME_FIELD_ID = \"mV9ICWq5ZoSj\";\nconst EMAIL_FIELD_ID = \"4Ghw0zu2jL9C\";\n\nconst recentRespondentEmails = new Set();\nconst recentRespondentNames = new Set();\n\nfor (const response of responses) {\n  const submittedAt = new Date(response.submitted_at);\n  if (submittedAt > fortyEightHoursAgo) {\n    const answers = response.answers || [];\n    \n    // Safe field access with null checks\n    const firstNameAnswer = answers.find(a => a.field && a.field.id === FIRST_NAME_FIELD_ID);\n    const lastNameAnswer = answers.find(a => a.field && a.field.id === LAST_NAME_FIELD_ID);\n    const emailAnswer = answers.find(a => a.field && a.field.id === EMAIL_FIELD_ID);\n    \n    const firstName = firstNameAnswer ? (firstNameAnswer.text || \"\") : \"\";\n    const lastName = lastNameAnswer ? (lastNameAnswer.text || \"\") : \"\";\n    const email = emailAnswer ? (emailAnswer.email || \"\") : \"\";\n    \n    // Track by email (more reliable)\n    if (email) {\n      recentRespondentEmails.add(email.toLowerCase().trim());\n    }\n    \n    // Also track by name as backup\n    const fullName = `${firstName} ${lastName}`.toLowerCase().trim().replace(/\\s+/g, ' ');\n    if (fullName.length > 1) {\n      recentRespondentNames.add(fullName);\n    }\n  }\n}\n\nconsole.log(`Found ${recentRespondentEmails.size} email(s) and ${recentRespondentNames.size} name(s) who responded in last 48h`);\n\n// Filter for emails that:\n// 1. Were sent initial email more than 24h ago\n// 2. Haven't received a reminder yet\n// 3. Haven't completed the survey (check against Typeform)\nconst needsReminder = trackedEmails.filter(item => {\n  const email = item.json.Email || item.json.email || '';\n  const name = item.json.Name || item.json.name || '';\n  const reminderSent = item.json['Reminder Sent'] || item.json.reminderSent;\n  const initialSentAt = item.json['Initial Sent At'] || item.json.initialSentAt;\n  \n  // Skip if no email\n  if (!email) return false;\n  \n  // Skip if reminder already sent\n  if (reminderSent === 'Yes' || reminderSent === 'yes' || reminderSent === true) return false;\n  \n  // Check if initial was sent more than 24h ago\n  if (!initialSentAt) return false;\n  const sentDate = new Date(initialSentAt);\n  if (isNaN(sentDate.getTime())) return false; // Invalid date\n  if (sentDate > twentyFourHoursAgo) return false;\n  \n  // Check if user completed survey - match by EMAIL first (more reliable)\n  const normalizedEmail = email.toLowerCase().trim();\n  if (recentRespondentEmails.has(normalizedEmail)) {\n    console.log(`Skipping ${name} (${email}): Already completed survey (email match)`);\n    return false;\n  }\n  \n  // Also check by name as backup\n  const normalizedName = name.toLowerCase().trim().replace(/\\s+/g, ' ');\n  if (recentRespondentNames.has(normalizedName)) {\n    console.log(`Skipping ${name} (${email}): Already completed survey (name match)`);\n    return false;\n  }\n  \n  return true;\n});\n\nconsole.log(`${needsReminder.length} people need reminder emails`);\n\nif (needsReminder.length === 0) {\n  return [{ json: { email: null, name: 'No Reminders Needed' } }];\n}\n\nreturn needsReminder.map(item => ({\n  json: {\n    email: item.json.Email || item.json.email,\n    name: item.json.Name || item.json.name,\n    eventTitle: item.json['Event Title'] || item.json.eventTitle,\n    eventType: item.json['Event Type'] || item.json.eventType\n  }\n}));"
+      },
+      "id": "87d65d8b-c9b0-4b65-8996-a0fbc41169f7",
+      "name": "Filter Needs Reminder (24h)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -896,
+        784
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "ef3cadea-bd1f-4548-bdc3-f5db4b41aa05",
+      "name": "No Reminders Needed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -448,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email || $json.Email}}",
+        "subject": "Re: Quick feedback?",
+        "message": "=<p>Hey {{ $json.firstName || $json.name.split(' ')[0] || '' }},</p>\n\n<p>Quick reminder to share your feedback on yesterday's session.\n</p>\n<p>Your input helps me make sure everything is worth your time.</p>\n<p><a href=\"https://1vjrabkrfnc.typeform.com/to/fJ7iYpDj\">https://1vjrabkrfnc.typeform.com/to/fJ7iYpDj</a></p>\n\n<p>Thanks,<br>Craig</p>",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "Craig Foldes"
+        }
+      },
+      "id": "f524e294-ab5b-4623-8e08-1829aa8bd1d4",
+      "name": "Send Reminder Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -448,
+        688
+      ],
+      "webhookId": "b3c00c2a-5200-4678-afaf-8ab9e4d03a56",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1Zitiyd5rjYlP2xy",
+          "name": "Craig's Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1Uksiu0GisxgUcOkaRtfdX7y4Y4i7Cqnb1rVMbl-k-e8",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Uksiu0GisxgUcOkaRtfdX7y4Y4i7Cqnb1rVMbl-k-e8/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email": "={{ $('Has Reminder Needed?').item.json.email }}",
+            "Reminder Sent": "=Yes",
+            "Reminder Sent At": "={{ new Date().toISOString() }}"
+          },
+          "matchingColumns": [
+            "Email"
+          ],
+          "schema": [
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Event Title",
+              "displayName": "Event Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Event Type",
+              "displayName": "Event Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Initial Sent At",
+              "displayName": "Initial Sent At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Reminder Sent",
+              "displayName": "Reminder Sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Survey Completed",
+              "displayName": "Survey Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Reminder Sent At",
+              "displayName": "Reminder Sent At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "6cbb143a-6858-4f26-b52b-2cfa47a79c75",
+      "name": "Mark Reminder Sent",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -224,
+        688
+      ],
+      "retryOnFail": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "iZSah7NCnZV4Rwsm",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "reminder-check",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -672,
+        784
+      ],
+      "id": "a15da175-9297-467d-8645-8a8fa5b9c7e3",
+      "name": "Has Reminder Needed?"
+    },
+    {
+      "parameters": {
+        "content": "## Feedback Mail\n",
+        "height": 512,
+        "width": 2480,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2144,
+        -64
+      ],
+      "typeVersion": 1,
+      "id": "f6dec3b5-2868-4fb6-9e55-3e70604b6dfb",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {},
+      "id": "eeb5be77-617f-46d1-b648-7d336213ef4a",
+      "name": "No Eligible Attendees1",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        160,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Reminder Email \n",
+        "height": 416,
+        "width": 1776,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1680,
+        624
+      ],
+      "typeVersion": 1,
+      "id": "acdd2faa-0c78-4469-bb35-259e8a29e1f5",
+      "name": "Sticky Note1"
+    }
+  ],
+  "connections": {
+    "Google Drive Trigger (CW)": {
+      "main": [
+        [
+          {
+            "node": "Download CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive Trigger (OTR)": {
+      "main": [
+        [
+          {
+            "node": "Download CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download CSV": {
+      "main": [
+        [
+          {
+            "node": "Parse CSV to JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse CSV to JSON": {
+      "main": [
+        [
+          {
+            "node": "Extract Attendee Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Attendee Data": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicate Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicate Emails": {
+      "main": [
+        [
+          {
+            "node": "Fetch Recent Typeform Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Recent Typeform Responses": {
+      "main": [
+        [
+          {
+            "node": "Filter Recent Respondents (48h)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Recent Respondents (48h)": {
+      "main": [
+        [
+          {
+            "node": "Has Valid Email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Valid Email?": {
+      "main": [
+        [
+          {
+            "node": "Send Initial Survey Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Eligible Attendees",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Initial Survey Email": {
+      "main": [
+        [
+          {
+            "node": "Track Email Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Track Email Sent": {
+      "main": [
+        [
+          {
+            "node": "No Eligible Attendees1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Followup Check (9 AM)": {
+      "main": [
+        [
+          {
+            "node": "Read Email Tracking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Email Tracking": {
+      "main": [
+        [
+          {
+            "node": "Fetch Typeform (Followup)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Typeform (Followup)": {
+      "main": [
+        [
+          {
+            "node": "Filter Needs Reminder (24h)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Needs Reminder (24h)": {
+      "main": [
+        [
+          {
+            "node": "Has Reminder Needed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Reminder Email": {
+      "main": [
+        [
+          {
+            "node": "Mark Reminder Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Reminder Needed?": {
+      "main": [
+        [
+          {
+            "node": "Send Reminder Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Reminders Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "Google Drive Trigger (OTR)": [
+      {
+        "parents": [
+          "1kp_uUjBZ0PLK0QlHTD_7es3jrk7bj_0O"
+        ],
+        "lastModifyingUser": {
+          "displayName": "anna",
+          "kind": "drive#user",
+          "me": false,
+          "permissionId": "06857770351550560922",
+          "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjW4WI0EYpjoXhNmOY0SGwAbUMFeQPKQj1ibGeth6uwqf5F0PQ=s64"
+        },
+        "spaces": [
+          "drive"
+        ],
+        "capabilities": {
+          "canAddChildren": false,
+          "canAddFolderFromAnotherDrive": false,
+          "canChangeCopyRequiresWriterPermission": false,
+          "canChangeItemDownloadRestriction": false,
+          "canChangeSecurityUpdateEnabled": false,
+          "canChangeViewersCanCopyContent": false,
+          "canComment": true,
+          "canCopy": true,
+          "canDelete": false,
+          "canDeleteChildren": false,
+          "canDisableInheritedPermissions": false,
+          "canDownload": true,
+          "canEdit": true,
+          "canEnableInheritedPermissions": false,
+          "canListChildren": false,
+          "canModifyContent": true,
+          "canModifyContentRestriction": true,
+          "canModifyEditorContentRestriction": true,
+          "canModifyOwnerContentRestriction": false,
+          "canModifyLabels": false,
+          "canMoveChildrenOutOfTeamDrive": false,
+          "canMoveChildrenOutOfDrive": false,
+          "canMoveChildrenWithinTeamDrive": false,
+          "canMoveChildrenWithinDrive": false,
+          "canMoveItemIntoTeamDrive": false,
+          "canMoveItemOutOfTeamDrive": false,
+          "canMoveItemOutOfDrive": false,
+          "canMoveItemWithinTeamDrive": false,
+          "canMoveItemWithinDrive": false,
+          "canMoveTeamDriveItem": false,
+          "canReadLabels": false,
+          "canReadRevisions": true,
+          "canReadTeamDrive": false,
+          "canReadDrive": false,
+          "canRemoveChildren": false,
+          "canRemoveContentRestriction": false,
+          "canRename": true,
+          "canShare": true,
+          "canTrash": false,
+          "canTrashChildren": false,
+          "canUntrash": true
+        },
+        "permissionIds": [
+          "11761166415031467974",
+          "02741872926143439612",
+          "04033852804020672375",
+          "00755717155175202133",
+          "06857770351550560922",
+          "16493620079587787745"
+        ],
+        "linkShareMetadata": {
+          "securityUpdateEligible": false,
+          "securityUpdateEnabled": true
+        },
+        "downloadRestrictions": {
+          "itemDownloadRestriction": {
+            "restrictedForReaders": false,
+            "restrictedForWriters": false
+          },
+          "effectiveDownloadRestrictionWithContext": {
+            "restrictedForReaders": false,
+            "restrictedForWriters": false
+          }
+        },
+        "kind": "drive#file",
+        "id": "1m1QXHRRwWaEmote0ZX6QMThQUz5pQAzA",
+        "name": "OTR Masterclass on FLORA Workflows for Ad Creative.csv",
+        "mimeType": "text/csv",
+        "starred": false,
+        "trashed": false,
+        "explicitlyTrashed": false,
+        "version": "2",
+        "webContentLink": "https://drive.google.com/uc?id=1m1QXHRRwWaEmote0ZX6QMThQUz5pQAzA&export=download",
+        "webViewLink": "https://drive.google.com/file/d/1m1QXHRRwWaEmote0ZX6QMThQUz5pQAzA/view?usp=drivesdk",
+        "iconLink": "https://drive-thirdparty.googleusercontent.com/16/type/text/csv",
+        "hasThumbnail": false,
+        "thumbnailVersion": "0",
+        "viewedByMe": false,
+        "createdTime": "2026-01-28T22:22:45.528Z",
+        "modifiedTime": "2026-01-28T22:03:04.000Z",
+        "modifiedByMe": false,
+        "teamDriveId": "0ACzHpZnJEm07Uk9PVA",
+        "driveId": "0ACzHpZnJEm07Uk9PVA",
+        "viewersCanCopyContent": true,
+        "copyRequiresWriterPermission": false,
+        "hasAugmentedPermissions": false,
+        "originalFilename": "OTR Masterclass on FLORA Workflows for Ad Creative.csv",
+        "fullFileExtension": "csv",
+        "fileExtension": "csv",
+        "md5Checksum": "00230732a30a6a79994ed3299b6f2ff3",
+        "sha1Checksum": "4e30ff4703cb6870455ee3a68b3f0c41d5137d92",
+        "sha256Checksum": "c06f2b501892973542e614d457250e6bda4cfe294c78a29ec49b4fdeda81b5ff",
+        "size": "5974",
+        "quotaBytesUsed": "5974",
+        "headRevisionId": "0B7BDHmsL-fWCRlN3SmpiSWJMSHVCYlo2R0dBMC9iVmJnczVrPQ",
+        "isAppAuthorized": false,
+        "inheritedPermissionsDisabled": false
+      }
+    ],
+    "Daily Followup Check (9 AM)": [
+      {
+        "timestamp": "2026-01-29T09:00:02.009-08:00",
+        "Readable date": "January 29th 2026, 9:00:02 am",
+        "Readable time": "9:00:02 am",
+        "Day of week": "Thursday",
+        "Year": "2026",
+        "Month": "January",
+        "Day of month": "29",
+        "Hour": "09",
+        "Minute": "00",
+        "Second": "02",
+        "Timezone": "America/Los_Angeles (UTC-08:00)"
+      }
+    ]
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "45d8f26ad96e0289d3cfc7825d5d775d23ae3675f6758e4f4a62abf4fb714ddc"
+  }
+}
